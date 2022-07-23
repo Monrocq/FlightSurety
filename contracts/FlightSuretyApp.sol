@@ -5,9 +5,10 @@ pragma solidity ^0.8.7;
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
 // More info: https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2018/november/smart-contract-insecurity-bad-arithmetic/
 
-import "./SafeMath.sol";
-//import './FlightSuretyData.sol';
-import "./FSD.sol";
+import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./FlightSuretyData.sol";
+
+//import "./FSD.sol";
 
 /************************************************** */
 /* FlightSurety Smart Contract                      */
@@ -81,8 +82,9 @@ contract FlightSuretyApp {
      * @dev Contract constructor
      *
      */
-    constructor() {
+    constructor(address payable addr) {
         contractOwner = msg.sender;
+        data = FlightSuretyData(addr);
     }
 
     /********************************************************************************************/
@@ -93,12 +95,12 @@ contract FlightSuretyApp {
         return true; // Modify to call data contract's status
     }
 
-    function setDataContract(address payable addr)
-        external
-        requireContractOwner
-    {
-        data = FlightSuretyData(addr);
-    }
+    // function setDataContract(address payable addr)
+    //     external
+    //     requireContractOwner
+    // {
+    //     data = FlightSuretyData(addr);
+    // }
 
     function getFlight(bytes32 key) external view returns (Flight memory) {
         return flights[key];
@@ -163,7 +165,11 @@ contract FlightSuretyApp {
         string memory flight,
         uint256 timestamp,
         uint8 statusCode
-    ) internal pure {}
+    ) internal {
+        bytes32 key = getFlightKey(airline, flight, timestamp);
+        flights[key].statusCode = statusCode;
+        flights[key].updatedTimestamp = block.timestamp;
+    }
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus(

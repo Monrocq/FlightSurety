@@ -1,9 +1,11 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.7;
 
-import "./SafeMath.sol";
-//import "./FlightSuretyApp.sol";
-import "./FSA.sol";
+import "../node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+import "./FlightSuretyApp.sol";
+
+//import "./FSA.sol";
 
 contract FlightSuretyData {
     using SafeMath for uint256;

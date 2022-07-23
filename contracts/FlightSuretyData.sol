@@ -22,10 +22,12 @@ contract FlightSuretyData {
     address private contractOwner; // Account used to deploy contract
     bool private operational = true; // Blocks all state changes throughout the contract if false
 
+    address[] internal authorizedCallers;
+
     mapping(address => bool) public airlines;
     mapping(address => bool) public allowed;
-    uint256 airlines_count = 0;
-    mapping(address => address[]) votes;
+    uint256 public airlines_count = 0;
+    mapping(address => address[]) public votes;
 
     struct Subscription {
         uint256 value;
@@ -44,9 +46,9 @@ contract FlightSuretyData {
      * @dev Constructor
      *      The deploying account becomes contractOwner
      */
-    constructor() {
+    constructor(address addr) {
         contractOwner = msg.sender;
-        airlines[msg.sender] = true;
+        airlines[addr] = true;
         airlines_count++;
     }
 
@@ -75,6 +77,20 @@ contract FlightSuretyData {
         _;
     }
 
+    modifier requireAuthorizedCaller() {
+        bool check = false;
+        for (uint256 i = 0; i < authorizedCallers.length; i++) {
+            if (
+                msg.sender == authorizedCallers[i] ||
+                msg.sender == contractOwner
+            ) {
+                check = true;
+            }
+        }
+        require(check, "The caller is not allowed");
+        _;
+    }
+
     modifier requireSubClean(bytes32 key) {
         require(
             subscriptions[msg.sender][key].value > 0,
@@ -98,6 +114,22 @@ contract FlightSuretyData {
     function isOperational() public view returns (bool) {
         return operational;
     }
+
+    function authorizeCaller(address addr) external requireContractOwner {
+        authorizedCallers.push(addr);
+    }
+
+    function isAirline(address addr) external view returns (bool) {
+        return airlines[addr];
+    }
+
+    function isAllowed(address addr) external view returns (bool) {
+        return allowed[addr];
+    }
+
+    /********************************************************************************************/
+    /*                                         GETTERS & SETTERS                                */
+    /********************************************************************************************/
 
     /**
      * @dev Sets contract operations on/off
@@ -133,14 +165,13 @@ contract FlightSuretyData {
      *      Can only be called from FlightSuretyApp contract
      *
      */
-    function registerAirline(address airline) external returns (bool, uint256) {
-        if (airlines_count > 4) {
-            for (uint256 i = 0; i < votes[airline].length; i++) {
-                require(
-                    votes[airline][i] != msg.sender,
-                    "you have already voted"
-                );
-            }
+    function registerAirline(address airline)
+        external
+        requireAuthorizedCaller
+        requireIsOperational
+        returns (bool, uint256)
+    {
+        if (airlines_count >= 4) {
             votes[airline].push(msg.sender);
             if (votes[airline].length < airlines_count.div(2)) {
                 return (false, votes[airline].length);
@@ -159,7 +190,7 @@ contract FlightSuretyData {
         address airline,
         string memory flight,
         uint256 timestamp
-    ) external payable {
+    ) external payable requireIsOperational {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         require(
             subscriptions[msg.sender][key].value > 0,
@@ -214,7 +245,7 @@ contract FlightSuretyData {
      *      resulting in insurance payouts, the contract should be self-sustaining
      *
      */
-    function fund() public payable {
+    function fund() public payable requireIsOperational {
         require(msg.value == 10 ether, "you have to send 10 ether");
         allowed[msg.sender] = true;
     }

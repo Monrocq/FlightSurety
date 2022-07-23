@@ -29,6 +29,7 @@ contract FlightSuretyApp {
     uint8 public constant STATUS_CODE_LATE_OTHER = 50;
 
     address private contractOwner; // Account used to deploy contract
+    bool private operational = true; // Blocks all state changes throughout the contract if false
 
     struct Flight {
         bool isRegistered;
@@ -54,7 +55,7 @@ contract FlightSuretyApp {
      */
     modifier requireIsOperational() {
         // Modify to call data contract's status
-        require(true, "Contract is currently not operational");
+        require(isOperational(), "Contract is currently not operational");
         _; // All modifiers require an "_" which indicates where the function body will be added
     }
 
@@ -91,16 +92,13 @@ contract FlightSuretyApp {
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
-    function isOperational() public pure returns (bool) {
-        return true; // Modify to call data contract's status
+    function isOperational() public view returns (bool) {
+        return operational; // Modify to call data contract's status
     }
 
-    // function setDataContract(address payable addr)
-    //     external
-    //     requireContractOwner
-    // {
-    //     data = FlightSuretyData(addr);
-    // }
+    function setOperatingStatus(bool mode) external requireContractOwner {
+        operational = mode;
+    }
 
     function getFlight(bytes32 key) external view returns (Flight memory) {
         return flights[key];
@@ -121,6 +119,7 @@ contract FlightSuretyApp {
     function registerAirline(address airline)
         external
         allowed
+        requireIsOperational
         returns (bool success, uint256 votes)
     {
         require(
@@ -142,7 +141,7 @@ contract FlightSuretyApp {
         address airline,
         string memory flight,
         uint256 timestamp
-    ) external {
+    ) external requireIsOperational {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         require(
             data.getAirline(airline) == true && msg.sender == airline,
@@ -176,7 +175,7 @@ contract FlightSuretyApp {
         address airline,
         string memory flight,
         uint256 timestamp
-    ) external {
+    ) external requireIsOperational {
         uint8 index = getRandomIndex(msg.sender);
 
         // Generate a unique key for storing the request

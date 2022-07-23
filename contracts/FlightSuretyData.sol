@@ -1,6 +1,7 @@
-pragma solidity ^0.4.25;
+//SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.7;
 
-import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./SafeMath.sol";
 //import "./FlightSuretyApp.sol";
 import "./FSA.sol";
 
@@ -10,7 +11,7 @@ contract FlightSuretyData {
     /********************************************************************************************/
     /*                                       CONSTANTES                                     */
     /********************************************************************************************/
-    uint256 public constant PAYOUT_FACTOR = 1.5;
+    //uint256 public constant PAYOUT_FACTOR = 1.5;
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
@@ -19,8 +20,8 @@ contract FlightSuretyData {
     address private contractOwner; // Account used to deploy contract
     bool private operational = true; // Blocks all state changes throughout the contract if false
 
-    mapping(address => bool) airlines;
-    mapping(address => bool) allowed;
+    mapping(address => bool) public airlines;
+    mapping(address => bool) public allowed;
     uint256 airlines_count = 0;
     mapping(address => address[]) votes;
 
@@ -41,9 +42,10 @@ contract FlightSuretyData {
      * @dev Constructor
      *      The deploying account becomes contractOwner
      */
-    constructor() public {
+    constructor() {
         contractOwner = msg.sender;
-        nextId = 1;
+        airlines[msg.sender] = true;
+        airlines_count++;
     }
 
     /********************************************************************************************/
@@ -72,7 +74,10 @@ contract FlightSuretyData {
     }
 
     modifier requireSubClean(bytes32 key) {
-        require(subscriptions[msg.sender][key], "No subscription taken");
+        require(
+            subscriptions[msg.sender][key].value > 0,
+            "No subscription taken"
+        );
         Subscription storage sub = subscriptions[msg.sender][key];
         require(sub.refund == false, "Subscription already refunded");
         require(sub.used == false, "Subscription already used");
@@ -101,8 +106,20 @@ contract FlightSuretyData {
         operational = mode;
     }
 
+    function setContractOwner(address owner) external requireContractOwner {
+        contractOwner = owner;
+    }
+
     function setAppContract(address addr) external requireContractOwner {
         app = FlightSuretyApp(addr);
+    }
+
+    function getAllowed(address addr) external view returns (bool) {
+        return allowed[addr];
+    }
+
+    function getAirline(address addr) external view returns (bool) {
+        return airlines[addr];
     }
 
     /********************************************************************************************/
@@ -114,14 +131,22 @@ contract FlightSuretyData {
      *      Can only be called from FlightSuretyApp contract
      *
      */
-    function registerAirline(string name)
-        external
-        pure
-        requireContractOwner
-        returns (uint256)
-    {
-        airlines[nextId] = name;
-        return nextId++;
+    function registerAirline(address airline) external returns (bool, uint256) {
+        if (airlines_count > 4) {
+            for (uint256 i = 0; i < votes[airline].length; i++) {
+                require(
+                    votes[airline][i] != msg.sender,
+                    "you have already voted"
+                );
+            }
+            votes[airline].push(msg.sender);
+            if (votes[airline].length < airlines_count.div(2)) {
+                return (false, votes[airline].length);
+            }
+        }
+        airlines[airline] = true;
+        airlines_count++;
+        return (true, airlines_count > 4 ? votes[airline].length : 0);
     }
 
     /**
@@ -130,21 +155,24 @@ contract FlightSuretyData {
      */
     function buy(
         address airline,
-        string flight,
+        string memory flight,
         uint256 timestamp
     ) external payable {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         require(
-            !subscriptions[msg.sender][key],
+            subscriptions[msg.sender][key].value > 0,
             "You have already took a insurance for this flight"
         );
-        require(timestamp > now, "the fly is past");
-        require(app.flights[key], "this flight does not exist");
+        require(timestamp > block.timestamp, "the fly is past");
+        require(
+            app.getFlight(key).isRegistered == true,
+            "this flight does not exist"
+        );
         uint256 value = msg.value;
         if (msg.value > 1 ether) {
             uint256 refund = msg.value.sub(1 ether);
             value = 1 ether;
-            msg.sender.transfer(refund);
+            payable(msg.sender).transfer(refund);
         }
         subscriptions[msg.sender][key] = Subscription(value, false, false);
     }
@@ -159,7 +187,7 @@ contract FlightSuretyData {
     ) external requireSubClean(getFlightKey(airline, flight, timestamp)) {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         subscriptions[msg.sender][key].refund = true;
-        msg.sender.transfer(subscriptions[msg.sender][key].value);
+        payable(msg.sender).transfer(subscriptions[msg.sender][key].value);
     }
 
     /**
@@ -172,10 +200,10 @@ contract FlightSuretyData {
         uint256 timestamp
     ) external requireSubClean(getFlightKey(airline, flight, timestamp)) {
         bytes32 key = getFlightKey(airline, flight, timestamp);
-        require(app.flights[key].statusCode == app.STATUS_CODE_LATE_AIRLINE);
+        require(app.getStatusCode(key) == app.STATUS_CODE_LATE_AIRLINE());
         subscriptions[msg.sender][key].used = true;
-        msg.sender.transfer(
-            subscriptions[msg.sender][key].value.multiply(PAYOUT_FACTOR)
+        payable(msg.sender).transfer(
+            subscriptions[msg.sender][key].value.mul(3).div(2)
         );
     }
 
@@ -201,7 +229,11 @@ contract FlightSuretyData {
      * @dev Fallback function for funding smart contract.
      *
      */
-    function() external payable {
+    fallback() external payable {
+        fund();
+    }
+
+    receive() external payable {
         fund();
     }
 }

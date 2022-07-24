@@ -24,7 +24,25 @@
         <div id="display-wrapper" class="top-20">
         </div>
         <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            <label class="form">Select passenger</label>
+            <select name="users" id="users-list"></select>
+        </div>
+        <div class="row top-20">
+            <label class="form">Select flight</label>
+            <select name="flights" id="flights-list"></select>
+        </div>
+        <div class="row top-20">
+            <label class="form">Corresponding Airline</label>
+            <input name="airline-address" type="text" disabled value="0xf17f52151EbEF6C7334FAD080c5704D77216b732">
+            <input name="airline-text" type="text" disabled value="Default airline"></input>
+        </div>
+        <div class="row top-20">
+            <label class="form">Please enter amount in Finney<br>min=1 & max=1000</label>
+            <input type="number" id="amount" max="1000" min="1" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+            <btn class="btn btn-primary" id="subscribe-insurance">Subscribe insurance</btn>
+        </div>
+        <div class="row top-20">
+            <btn class="btn btn-primary" id="submit-oracle">Fetch status</btn>
         </div>
     </main>
 

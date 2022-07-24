@@ -15,15 +15,18 @@ const ORACLE_NB = 20;
 flightSuretyApp.events.OracleRequest({
   fromBlock: 0
 }, async function (error, event) {
+  console.log('event received')
   if (error) console.log(error)
   const accounts = await web3.eth.getAccounts()
   const {index, airline, flight, timestamp} = event.returnValues;
   for (let i = 0; i < ORACLE_NB; i++) {
     const indexes = await flightSuretyApp.methods.getMyIndexes().call({from: accounts[i]})
-    if (indexes.includes(index)) {
+    console.log(indexes)
+    if (indexes.includes(index.toString())) {
+      console.log("submission")
       const statusCode = index > 6 ? await flightSuretyApp.methods.STATUS_CODE_LATE_AIRLINE().call({from: accounts[i]}) : index * 10;
       const gas = await flightSuretyApp.methods.submitOracleResponse(index, airline, flight, timestamp, statusCode).estimateGas({from: accounts[i]})
-      await flightSuretyApp.methods.submitOracleResponse(index, airline, flight, timestamp, statusCode).send({from: accounts[i], gas})
+      await flightSuretyApp.methods.submitOracleResponse(index, airline, flight, timestamp, statusCode).send({from: accounts[i], gas: 99999990})
     }
   }
 });

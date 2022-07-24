@@ -141,10 +141,11 @@ contract FlightSuretyApp {
         address airline,
         string memory flight,
         uint256 timestamp
-    ) external requireIsOperational {
+    ) external requireIsOperational returns (bytes32) {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         require(
-            data.getAirline(airline) == true && msg.sender == airline,
+            (data.getAirline(airline) == true && msg.sender == airline) ||
+                msg.sender == contractOwner,
             "You are not allowed"
         );
         flights[key] = Flight(
@@ -153,6 +154,7 @@ contract FlightSuretyApp {
             block.timestamp,
             msg.sender
         );
+        return key;
     }
 
     /**
@@ -320,7 +322,7 @@ contract FlightSuretyApp {
         address airline,
         string memory flight,
         uint256 timestamp
-    ) internal pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
 

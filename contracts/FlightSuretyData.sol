@@ -193,7 +193,7 @@ contract FlightSuretyData {
     ) external payable requireIsOperational {
         bytes32 key = getFlightKey(airline, flight, timestamp);
         require(
-            subscriptions[msg.sender][key].value > 0,
+            subscriptions[msg.sender][key].value == 0,
             "You have already took a insurance for this flight"
         );
         require(timestamp > block.timestamp, "the fly is past");

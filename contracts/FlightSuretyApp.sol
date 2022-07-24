@@ -247,13 +247,23 @@ contract FlightSuretyApp {
     );
 
     // Register an oracle with the contract
-    function registerOracle() external payable {
+    function registerOracle() public payable {
         // Require registration fee
         require(msg.value >= REGISTRATION_FEE, "Registration fee is required");
 
         uint8[3] memory indexes = generateIndexes(msg.sender);
 
         oracles[msg.sender] = Oracle({isRegistered: true, indexes: indexes});
+    }
+
+    // I can't instantiate 20 oracle during server-init because I have some errors with the boilerplate code
+    // Call 20 times registerOracle() produce "* Panic: Arithmetic overflow" in the generateFunction provide by Udacity
+    // So with initOracle() I generate randomness off-chain rather than on-chain to avoid on-chain errors
+    function initOracle(address addr, uint8[3] memory indexes)
+        public
+        requireContractOwner
+    {
+        oracles[addr] = Oracle({isRegistered: true, indexes: indexes});
     }
 
     function getMyIndexes() external view returns (uint8[3] memory) {
